@@ -21,6 +21,28 @@ from typing import Any
 
 MAX_ENTRIES = 200
 
+#: Route -> tool name, used when a request fails before the handler logs.
+#: A refused write is the most interesting row in the Developer View, so it
+#: must not be the one that shows up unlabelled.
+_TOOL_ROUTES: tuple[tuple[str, str, str], ...] = (
+    ("PATCH", "/lines/", "update_order_line"),
+    ("GET", "/shipments", "lookup_shipment"),
+    ("GET", "/api/orders/", "lookup_order"),
+    ("GET", "/api/products/search", "search_products"),
+    ("GET", "/api/inventory/", "check_inventory"),
+    ("GET", "/api/customers/search", "search_customer"),
+    ("POST", "/api/rfqs", "create_rfq"),
+    ("GET", "/api/rfqs/", "lookup_rfq"),
+)
+
+
+def tool_for(method: str, path: str) -> str | None:
+    """Best-effort tool name for a request, from its method and path."""
+    for wanted_method, fragment, tool in _TOOL_ROUTES:
+        if method == wanted_method and fragment in path:
+            return tool
+    return None
+
 _lock = threading.Lock()
 _entries: deque[dict[str, Any]] = deque(maxlen=MAX_ENTRIES)
 _counter = 0

@@ -142,7 +142,10 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         # health probes and the demo control plane are not tool calls.
         if request.url.path.startswith("/api/") and not request.url.path.startswith("/api/demo"):
             activity.record(
-                tool=tool_context.get("tool"),
+                # The handler's own log line names the tool; when the request
+                # failed before reaching it, fall back to the route.
+                tool=tool_context.get("tool")
+                or activity.tool_for(request.method, request.url.path),
                 method=request.method,
                 path=request.url.path,
                 query=str(request.url.query) or None,

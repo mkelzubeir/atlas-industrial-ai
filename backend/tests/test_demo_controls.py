@@ -201,3 +201,32 @@ def test_demo_endpoints_are_not_recorded_as_tool_calls(client):
     client.get("/api/demo/audit", headers={"X-Conversation-Id": "conv-meta"})
     body = client.get("/api/demo/activity", params={"conversation_id": "conv-meta"}).json()
     assert body["count"] == 0
+
+
+def test_failed_calls_are_still_labelled_with_their_tool(client):
+    """A refusal is the most useful row in the Developer View.
+
+    The route's own log line never runs when the handler raises, so the tool
+    name has to come from the route itself.
+    """
+    client.patch(
+        "/api/orders/1260/lines/1",
+        json={"quantity": 60, "customer_confirmed": True},
+        headers={"X-Conversation-Id": "conv-label"},
+    )
+    client.get("/api/orders/9999", headers={"X-Conversation-Id": "conv-label"})
+
+    entries = client.get(
+        "/api/demo/activity", params={"conversation_id": "conv-label"}
+    ).json()["entries"]
+    assert [e["tool"] for e in entries] == ["update_order_line", "lookup_order"]
+    assert [e["error_code"] for e in entries] == ["ORDER_NOT_MODIFIABLE", "ORDER_NOT_FOUND"]
+
+
+def test_successful_calls_keep_the_handlers_own_tool_name(client):
+    """The route fallback must not override what the handler reported."""
+    client.get("/api/orders/1847/shipments", headers={"X-Conversation-Id": "conv-ok"})
+    entry = client.get(
+        "/api/demo/activity", params={"conversation_id": "conv-ok"}
+    ).json()["entries"][0]
+    assert entry["tool"] == "lookup_shipment"
