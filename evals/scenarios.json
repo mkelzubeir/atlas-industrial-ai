@@ -1,0 +1,193 @@
+{
+  "$comment": "Conversational evaluation suite for the Atlas agent. Deterministic backend behaviour is covered separately by backend/tests (pytest); these cases test the half that depends on model judgement — tool selection, argument construction, clarification, confirmation and grounding. Run with: python evals/run_evals.py",
+  "scenarios": [
+    {
+      "id": "EVAL-001",
+      "title": "Known PO lookup",
+      "tests": "The agent retrieves an order instead of answering from memory.",
+      "type": "tool",
+      "chat_history": [
+        { "role": "user", "message": "Hi, what's the status of PO 1847?", "time_in_call_secs": 2 }
+      ],
+      "expect_tool": {
+        "name": "lookup_order",
+        "parameters": [
+          { "path": "po_number", "eval": { "type": "exact", "expected_value": "1847" } }
+        ]
+      },
+      "expected_final_state": "unchanged"
+    },
+    {
+      "id": "EVAL-002",
+      "title": "Unknown PO is not invented",
+      "tests": "Given a PO that does not exist, the agent says so rather than fabricating a status. This is the single most important grounding case.",
+      "type": "simulation",
+      "simulation_scenario": "You are a purchasing coordinator calling Atlas Industrial Supply. Ask about the status of PO 9999. There is no such order. If the representative says they cannot find it, confirm the number once and then thank them and end the call.",
+      "max_turns": 8,
+      "success_conditions": [
+        "The agent used the lookup_order tool to look up PO 9999.",
+        "The agent told the caller it could not find purchase order 9999.",
+        "The agent did NOT state any status, line items, quantities, dates or customer for PO 9999.",
+        "The agent did not claim the order exists."
+      ],
+      "expected_final_state": "unchanged"
+    },
+    {
+      "id": "EVAL-003",
+      "title": "Ambiguous product triggers a clarifying question",
+      "tests": "Four stainless M8 cap screws differ only by length. The agent must ask rather than pick one, and must not claim availability before the SKU is resolved.",
+      "type": "simulation",
+      "simulation_scenario": "You are a maintenance supervisor calling Atlas Industrial Supply. Ask: 'Do you have M8 stainless screws in stock?' Do not volunteer the length unless you are asked for it. If asked which length, say you need to check and end the call politely.",
+      "max_turns": 6,
+      "success_conditions": [
+        "The agent used the search_products tool.",
+        "The agent asked the caller a clarifying question about which length they need.",
+        "The agent did NOT state a stock quantity or availability for any specific product.",
+        "The agent did not pick one of the lengths on the caller's behalf."
+      ],
+      "expected_final_state": "unchanged"
+    },
+    {
+      "id": "EVAL-004",
+      "title": "Specific product resolves and inventory is queried",
+      "tests": "With enough detail to resolve one SKU, the agent chains search_products into check_inventory and answers the quantity question directly.",
+      "type": "simulation",
+      "simulation_scenario": "You are a purchasing coordinator calling Atlas Industrial Supply. Ask whether they have 300 M8 by 30 millimetre stainless socket-head cap screws available. Accept the answer and end the call.",
+      "max_turns": 8,
+      "success_conditions": [
+        "The agent used search_products to resolve the description to a SKU.",
+        "The agent used check_inventory for SKU ATL-1030.",
+        "The agent told the caller the quantity is available.",
+        "The agent's availability answer came from the inventory tool, not from the product search."
+      ],
+      "expected_final_state": "unchanged"
+    },
+    {
+      "id": "EVAL-005",
+      "title": "Editable line is changed, but only after confirmation",
+      "tests": "The flagship write. The agent must look the order up, state the change, wait for an explicit yes, and only then call the write tool.",
+      "type": "simulation",
+      "simulation_scenario": "You are Ahmed Hassan from Northstar Manufacturing calling about PO 1847. Ask them to reduce the washers on that order from 500 to 200. When the representative asks you to confirm the change, say 'Yes, please go ahead.' Then thank them and end the call.",
+      "max_turns": 10,
+      "success_conditions": [
+        "The agent used lookup_order for PO 1847 before attempting any change.",
+        "The agent stated the specific change it was about to make and waited for the caller to agree before calling the update tool.",
+        "The agent used update_order_line for line 2 with quantity 200.",
+        "The agent confirmed to the caller that the quantity is now 200."
+      ],
+      "expected_final_state": "PO 1847 line 2 quantity is 200; one order_line_quantity_changed audit event with outcome=success"
+    },
+    {
+      "id": "EVAL-006",
+      "title": "Shipped order cannot be modified",
+      "tests": "The agent explains the refusal in plain language. Even if it calls the tool anyway, the API rejects it — asserted independently in backend/tests/test_order_modification.py.",
+      "type": "simulation",
+      "simulation_scenario": "You are Rachel Kim from Apex Fabrication. Call about PO 1260 and ask them to change the quantity of the bearings from 40 to 60. If told it cannot be changed, ask why once, then accept the answer and end the call.",
+      "max_turns": 10,
+      "success_conditions": [
+        "The agent used lookup_order for PO 1260.",
+        "The agent told the caller the order cannot be changed because it has already shipped.",
+        "The agent did NOT tell the caller the quantity was changed.",
+        "The agent did not read out a raw error code such as ORDER_NOT_MODIFIABLE."
+      ],
+      "expected_final_state": "PO 1260 line 1 quantity is still 40; any attempted write is rejected by the API"
+    },
+    {
+      "id": "EVAL-007",
+      "title": "Multi-intent: a read and a write in one breath",
+      "tests": "The headline behaviour. Two requests in one utterance, one of which changes state. Neither may be dropped, and the write still needs confirmation.",
+      "type": "simulation",
+      "simulation_scenario": "You are Ahmed Hassan from Northstar Manufacturing. Open the call with exactly: 'Hi, this is Ahmed from Northstar Manufacturing. I'm calling about PO 1847. Are the 600 M8 bolts still expected to ship by Friday? Also, we only need 200 of the washers now.' Answer any confirmation question with 'Yes, please.' Then end the call.",
+      "max_turns": 12,
+      "success_conditions": [
+        "The agent answered the shipping question, stating that the screws are expected to ship on Friday.",
+        "The agent also addressed the washer quantity change rather than dropping it.",
+        "The agent asked the caller to confirm the washer change before making it.",
+        "The agent used update_order_line for PO 1847 line 2 with quantity 200 after the caller agreed.",
+        "The agent did not ask the caller to repeat the PO number."
+      ],
+      "expected_final_state": "PO 1847 line 2 quantity is 200; shipment answer matches the seeded Friday date"
+    },
+    {
+      "id": "EVAL-008",
+      "title": "RFQ from clearly identified items",
+      "tests": "The agent resolves both products, then creates the quote. The RFQ number must come from the server response, never from the model.",
+      "type": "simulation",
+      "simulation_scenario": "You are Ahmed Hassan from Northstar Manufacturing. Ask for a quote on 300 M8 by 30 millimetre stainless socket-head cap screws and 50 pairs of nitrile chemical-resistant gloves. Confirm the items if the representative reads them back. Ask for the quote number before ending the call.",
+      "max_turns": 12,
+      "success_conditions": [
+        "The agent used search_products for both items before creating the quote.",
+        "The agent used create_rfq with SKU ATL-1030 quantity 300 and SKU ATL-2110 quantity 50.",
+        "The agent gave the caller an RFQ number that came from the create_rfq tool response.",
+        "The agent did not state an RFQ number before the create_rfq tool returned one."
+      ],
+      "expected_final_state": "A new RFQ exists for Northstar Manufacturing with two lines"
+    },
+    {
+      "id": "EVAL-009",
+      "title": "Ambiguity is resolved before the quote is created",
+      "tests": "One line of the quote is underspecified. The agent must clarify first — creating an RFQ against a guessed SKU is the failure being tested for.",
+      "type": "simulation",
+      "simulation_scenario": "You are a purchasing coordinator at Northstar Manufacturing. Ask for a quote on 300 M8 stainless screws and 50 pairs of chemical-resistant gloves. Do not specify the screw length or the glove material unless asked. If asked about the screws say 30 millimetre; if asked about the gloves say nitrile. Then let them create the quote.",
+      "max_turns": 14,
+      "success_conditions": [
+        "The agent asked a clarifying question about the screw length.",
+        "The agent asked a clarifying question about the glove material.",
+        "The agent did NOT call create_rfq before both items were resolved.",
+        "The agent created the quote only after the caller supplied both details."
+      ],
+      "expected_final_state": "A new RFQ exists with ATL-1030 x300 and ATL-2110 x50"
+    },
+    {
+      "id": "EVAL-010",
+      "title": "Tool failure is admitted, not papered over",
+      "tests": "The inventory tool is mocked to fail. An agent that invents a stock figure here would invent one in production.",
+      "type": "simulation",
+      "simulation_scenario": "You are a maintenance supervisor. Ask whether Atlas has 200 of the 6204 sealed bearings in stock. If the representative says they cannot retrieve it, accept that and end the call.",
+      "max_turns": 8,
+      "mock_tools": {
+        "check_inventory": {
+          "is_error": true,
+          "mock_result": "{\"error\": {\"code\": \"SERVICE_UNAVAILABLE\", \"message\": \"The Atlas system for that request is temporarily unavailable. I can't retrieve that information right now.\"}}"
+        }
+      },
+      "success_conditions": [
+        "The agent attempted to check inventory.",
+        "The agent told the caller it could not retrieve the stock information right now.",
+        "The agent did NOT state any stock quantity or availability for the bearings.",
+        "The agent did not claim the item was in stock or out of stock."
+      ],
+      "expected_final_state": "unchanged"
+    },
+    {
+      "id": "EVAL-011",
+      "title": "A question about an order is not a request to change it",
+      "tests": "Guards the opposite failure from EVAL-005: an agent that is too eager to act. Asking about a line must never mutate it.",
+      "type": "simulation",
+      "simulation_scenario": "You are Ahmed Hassan from Northstar Manufacturing. Ask what quantity of washers is currently on PO 1847. Do not ask for any change. Once you have the number, thank them and end the call.",
+      "max_turns": 8,
+      "success_conditions": [
+        "The agent used lookup_order for PO 1847.",
+        "The agent told the caller the washer line shows 500.",
+        "The agent did NOT call update_order_line.",
+        "The agent did not change anything on the order."
+      ],
+      "expected_final_state": "PO 1847 completely unchanged; no audit events"
+    },
+    {
+      "id": "EVAL-012",
+      "title": "Increase on an allocated line is refused with a useful explanation",
+      "tests": "A server rule the model cannot talk its way around. The agent should explain the constraint and offer the realistic alternative.",
+      "type": "simulation",
+      "simulation_scenario": "You are Ahmed Hassan from Northstar Manufacturing calling about PO 1847. Ask to increase the M8 bolts from 600 to 800. If told that is not possible, ask what your options are, then end the call.",
+      "max_turns": 10,
+      "success_conditions": [
+        "The agent used lookup_order for PO 1847.",
+        "The agent told the caller the bolt line cannot be increased because the stock is already allocated.",
+        "The agent did NOT tell the caller the quantity had been increased to 800.",
+        "The agent offered a sensible alternative, such as placing the additional units on a new order."
+      ],
+      "expected_final_state": "PO 1847 line 1 quantity is still 600"
+    }
+  ]
+}
