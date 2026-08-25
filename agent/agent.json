@@ -1,0 +1,35 @@
+{
+  "name": "Atlas Industrial Supply — Customer Service",
+  "tags": ["atlas", "portfolio-demo"],
+  "conversation_config": {
+    "agent": {
+      "first_message": "Atlas Industrial Supply, this is Alex. How can I help?",
+      "language": "en",
+      "prompt": {
+        "temperature": 0.2,
+        "timezone": "America/New_York"
+      }
+    },
+    "asr": {
+      "quality": "high",
+      "keywords": [
+        "Atlas", "Northstar", "Apex Fabrication", "Riverside Packaging",
+        "Summit Automation", "Harbor Machine Works", "Cedar Industrial",
+        "M8", "M10", "stainless", "zinc-plated", "socket-head", "cap screw",
+        "hex head", "flat washer", "lock washer", "nyloc",
+        "nitrile", "neoprene", "butyl", "chemical-resistant",
+        "bearing", "6204", "6205", "6206", "threadlocker", "AWG",
+        "RFQ", "PO", "SKU", "ATL"
+      ]
+    },
+    "turn": {
+      "turn_timeout": 8.0,
+      "turn_eagerness": "balanced"
+    }
+  },
+  "platform_settings": {
+    "evaluation": {
+      "criteria": []
+    }
+  }
+}

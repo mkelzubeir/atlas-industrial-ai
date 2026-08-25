@@ -1,0 +1,254 @@
+[
+  {
+    "type": "webhook",
+    "name": "lookup_order",
+    "description": "Look up an Atlas purchase order by its PO number. Returns the order status, the customer it belongs to, every line item with its quantity, product name and SKU, the shipment attached to each line, and — importantly — whether each line can still be changed. Use this whenever a customer mentions a PO number, asks what is on an order, asks about an order's status, or before attempting any change to an order. Accepts the number in any spoken form: '1847', 'PO 1847' and 'po-1847' all work.",
+    "response_timeout_secs": 15,
+    "tool_error_handling_mode": "passthrough",
+    "assignments": [
+      {
+        "source": "response",
+        "dynamic_variable": "active_po_number",
+        "value_path": "po_number"
+      },
+      {
+        "source": "response",
+        "dynamic_variable": "current_customer_account",
+        "value_path": "customer.account_number"
+      },
+      {
+        "source": "response",
+        "dynamic_variable": "current_customer_name",
+        "value_path": "customer.company_name"
+      }
+    ],
+    "api_schema": {
+      "url": "__BASE_URL__/api/orders/{po_number}",
+      "method": "GET",
+      "path_params_schema": {
+        "po_number": {
+          "type": "string",
+          "description": "The purchase order number the customer gave, e.g. '1847'. Digits only is preferred, but 'PO 1847' is accepted."
+        }
+      },
+      "request_headers": {
+        "X-Atlas-Api-Key": { "secret_id": "__SECRET_ID__" },
+        "X-Conversation-Id": { "variable_name": "system__conversation_id" }
+      }
+    }
+  },
+  {
+    "type": "webhook",
+    "name": "lookup_shipment",
+    "description": "Get shipment and delivery information for a purchase order: carrier, shipment status, estimated ship date, estimated delivery date, the weekday each of those falls on, and the tracking number if one exists. Use this when a customer asks when something ships, when it will arrive, or for tracking details. Note that lookup_order already includes shipment details per line, so only call this when you need shipment information that lookup_order did not cover.",
+    "response_timeout_secs": 15,
+    "tool_error_handling_mode": "passthrough",
+    "api_schema": {
+      "url": "__BASE_URL__/api/orders/{po_number}/shipments",
+      "method": "GET",
+      "path_params_schema": {
+        "po_number": {
+          "type": "string",
+          "description": "The purchase order number, e.g. '1847'."
+        }
+      },
+      "request_headers": {
+        "X-Atlas-Api-Key": { "secret_id": "__SECRET_ID__" },
+        "X-Conversation-Id": { "variable_name": "system__conversation_id" }
+      }
+    }
+  },
+  {
+    "type": "webhook",
+    "name": "search_products",
+    "description": "Find Atlas products from a spoken description and get their exact SKUs. Always use this before checking inventory or creating a quote, because those need an exact SKU. The response tells you whether the description was specific enough: 'resolved: true' means exactly one product matched and you can act on it; 'resolved: false' means several products matched and you must ask the customer a clarifying question first. When it is unresolved, the response includes 'distinguishing_attributes' (the attributes on which the candidates actually differ, such as length or material) and 'clarification_hint' (a suggested question listing the real options). A match_count of 0 means Atlas does not stock it — say so rather than offering something similar. This tool does NOT report stock levels; use check_inventory for that.",
+    "response_timeout_secs": 15,
+    "tool_error_handling_mode": "passthrough",
+    "api_schema": {
+      "url": "__BASE_URL__/api/products/search",
+      "method": "GET",
+      "query_params_schema": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "The product as the customer described it, in their own words. Include every detail they gave: size, material, length, head style, type. For example 'M8 x 30 stainless socket head screws' or 'chemical resistant gloves'."
+          }
+        },
+        "required": ["query"]
+      },
+      "request_headers": {
+        "X-Atlas-Api-Key": { "secret_id": "__SECRET_ID__" },
+        "X-Conversation-Id": { "variable_name": "system__conversation_id" }
+      }
+    }
+  },
+  {
+    "type": "webhook",
+    "name": "check_inventory",
+    "description": "Check how many units of one specific SKU Atlas has available to ship, plus the warehouse and any expected restock date. Requires an exact SKU, so call search_products first and only use this once that search returned resolved: true. If you pass requested_quantity, the response answers directly whether that quantity can be met and how many units short it is. A product existing in the catalog says nothing about whether it is in stock — never answer an availability question without calling this.",
+    "response_timeout_secs": 15,
+    "tool_error_handling_mode": "passthrough",
+    "api_schema": {
+      "url": "__BASE_URL__/api/inventory/{sku}",
+      "method": "GET",
+      "path_params_schema": {
+        "sku": {
+          "type": "string",
+          "description": "An exact Atlas SKU as returned by search_products, e.g. 'ATL-1030'. Never invent or guess a SKU."
+        }
+      },
+      "query_params_schema": {
+        "properties": {
+          "requested_quantity": {
+            "type": "integer",
+            "description": "The number of units the customer asked about, if they named one. Leave out if they only asked whether the item is in stock generally."
+          }
+        },
+        "required": []
+      },
+      "request_headers": {
+        "X-Atlas-Api-Key": { "secret_id": "__SECRET_ID__" },
+        "X-Conversation-Id": { "variable_name": "system__conversation_id" }
+      }
+    }
+  },
+  {
+    "type": "webhook",
+    "name": "search_customer",
+    "description": "Find an Atlas customer account by company name, contact name, account number or email, and get the account number needed to create a quote. Use this when the caller names their company and you need their account — particularly before creating an RFQ. 'resolved: true' means exactly one account matched. If several match, or none do, ask the caller to confirm their company or account number rather than guessing.",
+    "response_timeout_secs": 15,
+    "tool_error_handling_mode": "passthrough",
+    "assignments": [
+      {
+        "source": "response",
+        "dynamic_variable": "current_customer_account",
+        "value_path": "customers.0.account_number"
+      },
+      {
+        "source": "response",
+        "dynamic_variable": "current_customer_name",
+        "value_path": "customers.0.company_name"
+      }
+    ],
+    "api_schema": {
+      "url": "__BASE_URL__/api/customers/search",
+      "method": "GET",
+      "query_params_schema": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "The company name, contact name or account number the caller gave, e.g. 'Northstar Manufacturing'."
+          }
+        },
+        "required": ["query"]
+      },
+      "request_headers": {
+        "X-Atlas-Api-Key": { "secret_id": "__SECRET_ID__" },
+        "X-Conversation-Id": { "variable_name": "system__conversation_id" }
+      }
+    }
+  },
+  {
+    "type": "webhook",
+    "name": "create_rfq",
+    "description": "Create a request for quote in the Atlas system and get back the RFQ number to give the customer. This CHANGES Atlas records, so only call it when the customer has actually asked for a quote and you have read the items and quantities back to them. Every line must use an exact SKU from search_products — never a description. You also need the customer's Atlas account number from lookup_order or search_customer. Atlas generates the RFQ number; never invent one or tell a customer a number before this call succeeds.",
+    "response_timeout_secs": 20,
+    "tool_error_handling_mode": "passthrough",
+    "assignments": [
+      {
+        "source": "response",
+        "dynamic_variable": "active_rfq_number",
+        "value_path": "rfq_number"
+      }
+    ],
+    "api_schema": {
+      "url": "__BASE_URL__/api/rfqs",
+      "method": "POST",
+      "content_type": "application/json",
+      "request_body_schema": {
+        "type": "object",
+        "required": ["customer_account_number", "lines"],
+        "properties": {
+          "customer_account_number": {
+            "type": "string",
+            "description": "The customer's Atlas account number, e.g. 'NM-4471', taken from lookup_order or search_customer."
+          },
+          "lines": {
+            "type": "array",
+            "description": "The items to quote. One entry per product, each with a resolved SKU and a quantity. Combine duplicates rather than repeating a SKU.",
+            "items": {
+              "type": "object",
+              "required": ["sku", "quantity"],
+              "properties": {
+                "sku": {
+                  "type": "string",
+                  "description": "An exact Atlas SKU from search_products, e.g. 'ATL-1030'."
+                },
+                "quantity": {
+                  "type": "integer",
+                  "description": "How many units the customer wants quoted. Must be 1 or more."
+                }
+              }
+            }
+          },
+          "notes": {
+            "type": "string",
+            "description": "Optional short note from the customer, such as a required-by date or an application detail."
+          }
+        }
+      },
+      "request_headers": {
+        "X-Atlas-Api-Key": { "secret_id": "__SECRET_ID__" },
+        "X-Conversation-Id": { "variable_name": "system__conversation_id" }
+      }
+    }
+  },
+  {
+    "type": "webhook",
+    "name": "update_order_line",
+    "description": "Change the quantity on one line of an existing purchase order. This CHANGES Atlas records. Only call it after you have looked the order up, identified the exact line number, told the customer the specific change, and had them clearly agree to it. Atlas validates the change independently and will refuse it if the order or line has shipped or been cancelled, if the line is already allocated and you are trying to increase it, or if there is not enough stock — in those cases explain the reason it gives rather than trying again. Set customer_confirmed to true only when the customer has explicitly approved this exact change.",
+    "response_timeout_secs": 20,
+    "tool_error_handling_mode": "passthrough",
+    "api_schema": {
+      "url": "__BASE_URL__/api/orders/{po_number}/lines/{line_number}",
+      "method": "PATCH",
+      "content_type": "application/json",
+      "path_params_schema": {
+        "po_number": {
+          "type": "string",
+          "description": "The purchase order number, e.g. '1847'."
+        },
+        "line_number": {
+          "type": "integer",
+          "description": "The line number to change, exactly as shown in the lookup_order response. Never guess this."
+        }
+      },
+      "request_body_schema": {
+        "type": "object",
+        "required": ["quantity", "customer_confirmed"],
+        "properties": {
+          "quantity": {
+            "type": "integer",
+            "description": "The new total quantity for this line — not the amount to add or remove. Must be 1 or more."
+          },
+          "customer_confirmed": {
+            "type": "boolean",
+            "description": "Set to true only if the customer explicitly agreed to this exact change immediately before this call. If they are still deciding, do not call this tool."
+          },
+          "expected_current_quantity": {
+            "type": "integer",
+            "description": "The quantity the line showed when you looked the order up. Including this makes Atlas refuse the change if the line moved in the meantime, instead of silently overwriting it."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Optional short note on why the customer wanted the change, e.g. 'reduced requirement'."
+          }
+        }
+      },
+      "request_headers": {
+        "X-Atlas-Api-Key": { "secret_id": "__SECRET_ID__" },
+        "X-Conversation-Id": { "variable_name": "system__conversation_id" }
+      }
+    }
+  }
+]
