@@ -84,12 +84,15 @@ def bad_request(code: str, message: str, **details: Any) -> AtlasError:
     )
 
 
-async def atlas_error_handler(_request: Request, exc: AtlasError) -> JSONResponse:
+async def atlas_error_handler(request: Request, exc: AtlasError) -> JSONResponse:
+    # Surfaced to the request middleware so the Developer View can show *why*
+    # a call failed, not merely that it returned a non-200.
+    request.state.atlas_error_code = exc.code
     return JSONResponse(status_code=exc.http_status, content=exc.to_payload())
 
 
 async def validation_error_handler(
-    _request: Request, exc: RequestValidationError
+    request: Request, exc: RequestValidationError
 ) -> JSONResponse:
     """Reshape FastAPI's default 422 body into the Atlas error envelope.
 
@@ -97,6 +100,7 @@ async def validation_error_handler(
     different shape from every other error, and the prompt would need to know
     about two formats.
     """
+    request.state.atlas_error_code = ErrorCode.VALIDATION_ERROR
     problems = [
         {"field": ".".join(str(p) for p in err.get("loc", []) if p != "body"), "issue": err.get("msg", "")}
         for err in exc.errors()

@@ -124,3 +124,80 @@ def test_business_endpoints_still_work_when_demo_mode_is_off(monkeypatch, client
     finally:
         monkeypatch.delenv("ATLAS_DEMO_MODE", raising=False)
         get_settings.cache_clear()
+
+
+# ---------------------------------------------------------------------------
+# Activity feed -- the backend half of the Developer View
+# ---------------------------------------------------------------------------
+
+
+def test_activity_feed_records_tool_calls_with_their_arguments(client):
+    client.get("/api/orders/1847", headers={"X-Conversation-Id": "conv-1"})
+    client.get(
+        "/api/inventory/ATL-1030",
+        params={"requested_quantity": 600},
+        headers={"X-Conversation-Id": "conv-1"},
+    )
+
+    body = client.get("/api/demo/activity", params={"conversation_id": "conv-1"}).json()
+    assert body["count"] == 2
+
+    order_call, inventory_call = body["entries"]
+    assert order_call["tool"] == "lookup_order"
+    assert order_call["ok"] is True
+    assert order_call["params"]["po_number"] == "1847"
+    assert inventory_call["tool"] == "check_inventory"
+    assert inventory_call["params"]["requested_quantity"] == 600
+    assert inventory_call["duration_ms"] >= 0
+
+
+def test_activity_feed_is_scoped_to_one_conversation(client):
+    client.get("/api/orders/1847", headers={"X-Conversation-Id": "conv-a"})
+    client.get("/api/orders/1260", headers={"X-Conversation-Id": "conv-b"})
+
+    a = client.get("/api/demo/activity", params={"conversation_id": "conv-a"}).json()
+    assert a["count"] == 1
+    assert a["entries"][0]["params"]["po_number"] == "1847"
+
+
+def test_activity_feed_records_failures_with_their_error_code(client):
+    client.get("/api/orders/9999", headers={"X-Conversation-Id": "conv-err"})
+
+    entry = client.get(
+        "/api/demo/activity", params={"conversation_id": "conv-err"}
+    ).json()["entries"][0]
+    assert entry["ok"] is False
+    assert entry["status_code"] == 404
+    assert entry["error_code"] == "ORDER_NOT_FOUND"
+
+
+def test_activity_feed_records_rejected_writes(client):
+    client.patch(
+        "/api/orders/1260/lines/1",
+        json={"quantity": 10, "customer_confirmed": True},
+        headers={"X-Conversation-Id": "conv-w"},
+    )
+    entry = client.get(
+        "/api/demo/activity", params={"conversation_id": "conv-w"}
+    ).json()["entries"][0]
+    assert entry["error_code"] == "ORDER_NOT_MODIFIABLE"
+    assert entry["method"] == "PATCH"
+
+
+def test_activity_feed_supports_incremental_polling(client):
+    client.get("/api/orders/1847", headers={"X-Conversation-Id": "conv-poll"})
+    first = client.get("/api/demo/activity", params={"conversation_id": "conv-poll"}).json()
+
+    client.get("/api/orders/1260", headers={"X-Conversation-Id": "conv-poll"})
+    second = client.get(
+        "/api/demo/activity",
+        params={"conversation_id": "conv-poll", "since_seq": first["latest_seq"]},
+    ).json()
+    assert second["count"] == 1
+    assert second["entries"][0]["params"]["po_number"] == "1260"
+
+
+def test_demo_endpoints_are_not_recorded_as_tool_calls(client):
+    client.get("/api/demo/audit", headers={"X-Conversation-Id": "conv-meta"})
+    body = client.get("/api/demo/activity", params={"conversation_id": "conv-meta"}).json()
+    assert body["count"] == 0

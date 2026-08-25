@@ -1,0 +1,104 @@
+/* ---------------------------------------------------------------------------
+   Atlas Industrial Supply — design tokens
+
+   Restrained on purpose. This is meant to read like internal software at a
+   B2B distributor: neutral surfaces, one accent, real hierarchy from type and
+   spacing rather than colour. No gradients, no glow, no decorative charts.
+   --------------------------------------------------------------------------- */
+
+:root {
+  --bg: #fbfbfa;
+  --surface: #ffffff;
+  --surface-sunken: #f4f4f2;
+  --border: #e3e3df;
+  --border-strong: #cfcfc9;
+
+  --text: #17181a;
+  --text-muted: #6b6d72;
+  --text-faint: #93959a;
+
+  --accent: #1c5d99;
+  --accent-soft: #e8f0f8;
+  --success: #1a7f4b;
+  --success-soft: #e7f4ed;
+  --danger: #b42318;
+  --danger-soft: #fdeceb;
+  --warning: #b54708;
+
+  --radius: 8px;
+  --radius-lg: 14px;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e0f11;
+    --surface: #161719;
+    --surface-sunken: #1d1f22;
+    --border: #2a2c30;
+    --border-strong: #3a3d42;
+
+    --text: #ececed;
+    --text-muted: #9b9ea4;
+    --text-faint: #6e7176;
+
+    --accent: #6aa9e0;
+    --accent-soft: #16283a;
+    --success: #4ec98a;
+    --success-soft: #14291f;
+    --danger: #f2837a;
+    --danger-soft: #2e1a19;
+    --warning: #e0a25e;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "tnum" 1;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

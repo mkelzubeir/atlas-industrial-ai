@@ -18,7 +18,7 @@ from app.db import get_session
 from app.logging_config import log_event
 from app.schemas import DemoFaultRequest, DemoFaultResponse, DemoResetResponse
 from app.security import require_demo_mode
-from app.services import audit, faults
+from app.services import activity, audit, faults
 from seed.seed import reset_database
 
 router = APIRouter(
@@ -35,6 +35,7 @@ router = APIRouter(
 )
 def reset(session: Session = Depends(get_session)) -> DemoResetResponse:
     faults.clear()
+    activity.clear()
     restored = reset_database(session)
     log_event("demo.reset", **restored)
     return DemoResetResponse(
@@ -102,4 +103,28 @@ def recent_audit(limit: int = 25, session: Session = Depends(get_session)) -> di
             }
             for event in events
         ],
+    }
+
+
+@router.get(
+    "/activity",
+    summary="[DEMO ONLY] Recent tool calls with their arguments, for the Developer View",
+)
+def recent_activity(
+    conversation_id: str | None = None,
+    since_seq: int = 0,
+    limit: int = 50,
+) -> dict:
+    """Backend-side view of the tool calls made during a conversation.
+
+    The ElevenLabs client SDK reports which tool ran and what it returned, but
+    not the arguments the agent chose. Those are only visible here, so the
+    Developer View merges this feed with the client-side events using the
+    conversation id the agent forwards on every tool call.
+    """
+    entries = activity.recent(conversation_id, limit=limit, since_seq=since_seq)
+    return {
+        "count": len(entries),
+        "latest_seq": entries[-1]["seq"] if entries else since_seq,
+        "entries": entries,
     }
