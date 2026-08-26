@@ -184,3 +184,56 @@ def test_prompt_states_the_core_grounding_rule():
     # Every tool must be named somewhere in the prompt.
     for name in EXPECTED_TOOLS:
         assert name in prompt, f"prompt never mentions {name}"
+
+
+# ---------------------------------------------------------------------------
+# Enum values. These are only validated by the ElevenLabs API at provisioning
+# time, which is a slow and annoying place to discover a typo -- the first live
+# run of this project failed on turn_eagerness="balanced", a value that simply
+# does not exist. Pinning the vocabularies here moves that failure into CI.
+# Sourced from the elevenlabs Python SDK's Literal types.
+# ---------------------------------------------------------------------------
+
+AGENT_ENUMS: dict[str, set[str]] = {
+    "turn.turn_eagerness": {"patient", "normal", "eager"},
+    "asr.quality": {"high"},
+    "asr.provider": {"elevenlabs", "scribe_realtime"},
+}
+
+TOOL_ENUMS: dict[str, set[str]] = {
+    "content_type": {"application/json", "application/x-www-form-urlencoded"},
+    "tool_error_handling_mode": {"auto", "summarized", "passthrough", "hide"},
+    "interruption_mode": {"allow", "disable_during_tool", "disable_during_tool_and_turn"},
+    "pre_tool_speech": {"auto", "force", "off"},
+    "execution_mode": {"immediate", "post_tool_speech", "async"},
+    "method": {"GET", "POST", "PUT", "PATCH", "DELETE"},
+}
+
+
+def test_agent_config_enum_values_are_valid():
+    config = json.loads((AGENT_DIR / "agent.json").read_text())
+    conversation = config["conversation_config"]
+    for dotted, allowed in AGENT_ENUMS.items():
+        section, key = dotted.split(".")
+        value = (conversation.get(section) or {}).get(key)
+        if value is not None:
+            assert value in allowed, f"{dotted}={value!r} is not one of {sorted(allowed)}"
+
+
+def test_tool_enum_values_are_valid(tools):
+    for tool in tools:
+        for key, allowed in TOOL_ENUMS.items():
+            for holder in (tool, tool["api_schema"]):
+                value = holder.get(key)
+                if value is not None:
+                    assert value in allowed, (
+                        f"{tool['name']}.{key}={value!r} is not one of {sorted(allowed)}"
+                    )
+
+
+def test_response_timeouts_are_within_platform_limits(tools):
+    """The API accepts 5..300 seconds inclusive."""
+    for tool in tools:
+        timeout = tool.get("response_timeout_secs")
+        if timeout is not None:
+            assert 5 <= timeout <= 300, f"{tool['name']} timeout {timeout} out of range"
