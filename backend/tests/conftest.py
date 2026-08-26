@@ -15,9 +15,23 @@ from pathlib import Path
 import pytest
 
 _TMPDIR = tempfile.mkdtemp(prefix="atlas-tests-")
+
+# Every ATLAS_* setting is pinned explicitly, including the ones we want at
+# their defaults.
+#
+# The reason is `backend/.env`. Settings loads it, and the README tells
+# developers to create one -- with a real ATLAS_API_KEY in it. Merely *unsetting*
+# a variable here is not enough, because the dotenv file would then supply the
+# value and the whole suite would run with auth enabled, failing ~80 tests with
+# 401s on a machine that is configured perfectly correctly.
+#
+# Environment variables take precedence over the dotenv file in
+# pydantic-settings, so assigning an empty string overrides it. The tests that
+# genuinely need auth turn it on themselves via monkeypatch.
 os.environ["ATLAS_DATABASE_URL"] = f"sqlite:///{Path(_TMPDIR) / 'test.db'}"
 os.environ["ATLAS_DEMO_MODE"] = "true"
-os.environ.pop("ATLAS_API_KEY", None)
+os.environ["ATLAS_API_KEY"] = ""
+os.environ["ATLAS_LOG_LEVEL"] = "WARNING"
 
 from fastapi.testclient import TestClient
 
