@@ -125,7 +125,14 @@ class ElevenLabsClient:
     def create_secret(self, name: str, value: str) -> dict:
         if self.dry_run:
             return {"secret_id": "<dry-run-secret-id>", "name": name}
-        return self._request("POST", "v1/convai/secrets", {"name": name, "value": value})
+        # `type` is required by the API and discriminates the secret source.
+        # "new" means the value is supplied inline here (as opposed to being
+        # imported from a connected provider). The Python SDK's typed
+        # `secrets.create(name, value)` wrapper hides it, so it is easy to miss
+        # when building the request by hand -- the API answers 422 without it.
+        return self._request(
+            "POST", "v1/convai/secrets", {"name": name, "value": value, "type": "new"}
+        )
 
     def create_tool(self, tool_config: dict) -> dict:
         if self.dry_run:
