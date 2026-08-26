@@ -61,3 +61,77 @@ export interface AuditEntry {
   conversation_id: string | null;
   payload: Record<string, unknown>;
 }
+
+
+/** Read-only snapshot of the synthetic environment, for the data browser. */
+
+export interface SnapshotLine {
+  line_number: number;
+  sku: string;
+  product_name: string;
+  quantity: number;
+  unit_of_measure: string;
+  status: string;
+  modifiable: boolean;
+}
+
+export interface SnapshotShipment {
+  carrier: string;
+  status: string;
+  estimated_ship_date: string | null;
+  estimated_ship_day: string | null;
+  tracking_number: string | null;
+  line_numbers: number[];
+}
+
+export interface SnapshotOrder {
+  po_number: string;
+  company_name: string;
+  account_number: string;
+  status: string;
+  modifiable: boolean;
+  created_at: string;
+  customer_reference: string | null;
+  lines: SnapshotLine[];
+  shipments: SnapshotShipment[];
+}
+
+export interface SnapshotProduct {
+  sku: string;
+  name: string;
+  description: string;
+  category: string;
+  unit_of_measure: string;
+  unit_price: number;
+  attributes: Record<string, unknown>;
+  quantity_available: number;
+  quantity_on_hand: number;
+  expected_restock_date: string | null;
+}
+
+export interface SnapshotCustomer {
+  account_number: string;
+  company_name: string;
+  contact_name: string;
+  email: string;
+  phone: string;
+  status: string;
+  order_count: number;
+}
+
+export interface SnapshotRfq {
+  rfq_number: string;
+  company_name: string;
+  status: string;
+  source: string;
+  created_at: string;
+  lines: { sku: string; product_name: string; quantity: number }[];
+}
+
+export interface DatabaseSnapshot {
+  customers: SnapshotCustomer[];
+  orders: SnapshotOrder[];
+  products: SnapshotProduct[];
+  rfqs: SnapshotRfq[];
+  counts: { customers: number; orders: number; products: number; rfqs: number };
+}

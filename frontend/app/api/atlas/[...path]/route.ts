@@ -13,7 +13,13 @@ import { serverConfig } from "@/lib/config";
  *    cannot modify an order. The only path to a write is through the agent's
  *    own authenticated tool call.
  */
-const ALLOWED = new Set(["demo/activity", "demo/audit", "demo/reset", "demo/fault"]);
+const ALLOWED = new Set([
+  "demo/activity",
+  "demo/audit",
+  "demo/database",
+  "demo/reset",
+  "demo/fault",
+]);
 
 async function forward(request: NextRequest, path: string[], method: string) {
   const joined = path.join("/");

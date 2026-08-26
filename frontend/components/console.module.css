@@ -470,3 +470,272 @@
   .turn { grid-template-columns: 1fr; gap: 3px; }
   .devStateRow { grid-template-columns: 1fr; gap: 0; }
 }
+
+/* ---- demo data browser --------------------------------------------- */
+
+.linkButton {
+  margin-top: 2px;
+  padding: 4px 2px;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+
+.linkButton:hover { opacity: 0.75; }
+
+.dataPanel {
+  margin-top: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.dataIntro {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-sunken);
+}
+
+.dataIntroText {
+  margin: 0 0 12px;
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+
+.suggestList {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+.suggestList strong {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.tabRow {
+  display: flex;
+  gap: 2px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 14px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--text-muted);
+  font-size: 13.5px;
+}
+
+.tab:hover { color: var(--text); }
+
+.tabActive {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+  font-weight: 550;
+}
+
+.tabCount {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dataBody {
+  max-height: 460px;
+  overflow-y: auto;
+  padding: 14px 20px 20px;
+}
+
+.filterInput {
+  width: 100%;
+  margin-bottom: 14px;
+  padding: 8px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 13.5px;
+}
+
+.filterInput::placeholder { color: var(--text-faint); }
+
+/* -- orders -- */
+
+.orderRow {
+  border-bottom: 1px solid var(--border);
+}
+
+.orderRow:last-child { border-bottom: none; }
+
+.orderHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 0;
+  border: none;
+  background: none;
+  color: inherit;
+  text-align: left;
+}
+
+.poNumber {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.statusChip {
+  flex-shrink: 0;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.status_processing { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+.status_confirmed  { color: var(--success); border-color: color-mix(in srgb, var(--success) 40%, var(--border)); }
+.status_shipped,
+.status_cancelled  { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, var(--border)); }
+
+.orderCompany {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13.5px;
+}
+
+.orderMeta {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.orderDetail {
+  padding: 4px 0 16px;
+}
+
+.lockNote {
+  margin: 0 0 10px;
+  padding: 7px 11px;
+  border-radius: var(--radius);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 12.5px;
+}
+
+.shipNote {
+  margin: 9px 0 0;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+/* -- tables -- */
+
+.dataTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.dataTable th {
+  padding: 6px 8px 6px 0;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.dataTable td {
+  padding: 7px 8px 7px 0;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.dataTable tr:last-child td { border-bottom: none; }
+
+.numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  /* Right-aligned cells still need a gutter, or the value collides with the
+     next column ("600allocated"). Only the final column drops it. */
+  padding-right: 16px;
+  white-space: nowrap;
+}
+
+.dataTable th:last-child.numeric,
+.dataTable td:last-child.numeric {
+  padding-right: 0;
+}
+
+.zeroStock { color: var(--danger); font-weight: 600; }
+
+.restock {
+  display: block;
+  font-size: 11.5px;
+  color: var(--warning);
+}
+
+.lockedTag {
+  margin-left: 7px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.holdBadge {
+  margin-left: 8px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.categoryBlock { margin-bottom: 22px; }
+
+.categoryHeading {
+  margin: 0 0 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+@media (max-width: 560px) {
+  .orderHeader { flex-wrap: wrap; }
+  .orderCompany { flex-basis: 100%; }
+  .dataBody { padding: 12px 14px 16px; }
+}

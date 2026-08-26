@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { AuditEntry, ActivityEntry, ToolEvent, TranscriptEntry } from "@/lib/types";
 import styles from "./console.module.css";
+import { DemoDataPanel } from "./DemoDataPanel";
 import { DeveloperView } from "./DeveloperView";
 import { Transcript } from "./Transcript";
 import { VoiceOrb } from "./VoiceOrb";
@@ -26,6 +27,9 @@ export function AtlasConsole({ agentId }: { agentId: string }) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [sessionState, setSessionState] = useState<Record<string, string | undefined>>({});
   const [devOpen, setDevOpen] = useState(false);
+  const [dataOpen, setDataOpen] = useState(false);
+  // Bumped after a write or a reset so the data browser re-reads the database.
+  const [dataVersion, setDataVersion] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [level, setLevel] = useState(0);
@@ -91,6 +95,11 @@ export function AtlasConsole({ agentId }: { agentId: string }) {
       );
 
       if (result) captureSessionState(payload.tool_name, result, setSessionState);
+
+      // A write changed the database; let the data browser pick it up.
+      if (["update_order_line", "create_rfq"].includes(payload.tool_name) && !payload.is_error) {
+        setDataVersion((v) => v + 1);
+      }
     },
   });
 
@@ -203,6 +212,7 @@ export function AtlasConsole({ agentId }: { agentId: string }) {
           : (body?.error?.message ?? "Could not reset the demo data."),
       );
       setAuditEvents([]);
+      setDataVersion((v) => v + 1);
     } catch {
       setNotice("Could not reach the Atlas backend to reset it.");
     }
@@ -257,6 +267,12 @@ export function AtlasConsole({ agentId }: { agentId: string }) {
                   : "Listening"
                 : "Try: “I'm calling about PO 1847 — are the M8 bolts still shipping Friday?”"}
           </p>
+
+          {!connected && (
+            <button className={styles.linkButton} onClick={() => setDataOpen(true)}>
+              Not sure what to ask? Browse the demo data →
+            </button>
+          )}
         </section>
 
         {notice && <div className={styles.notice}>{notice}</div>}
@@ -272,10 +288,19 @@ export function AtlasConsole({ agentId }: { agentId: string }) {
             {devOpen ? "Hide" : "Show"} developer view
             {toolEvents.length > 0 && <span className={styles.pill}>{toolEvents.length}</span>}
           </button>
+          <button
+            className={styles.buttonQuiet}
+            onClick={() => setDataOpen((open) => !open)}
+            aria-expanded={dataOpen}
+          >
+            {dataOpen ? "Hide" : "Browse"} demo data
+          </button>
           <button className={styles.buttonQuiet} onClick={resetDemo}>
             Reset demo data
           </button>
         </div>
+
+        {dataOpen && <DemoDataPanel refreshKey={dataVersion} />}
 
         {devOpen && (
           <DeveloperView

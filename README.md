@@ -297,8 +297,15 @@ cp .env.example .env.local          # paste in the agent id
 npm install && npm run dev          # http://localhost:3000
 ```
 
-Click **Start call**. Open **Developer View** to watch the tool calls.
-**Reset demo data** restores the seeded state before a recording.
+Click **Start call**. Three controls sit under the transcript:
+
+- **Browse demo data** — the whole synthetic world: every order with its lines
+  and edit eligibility, every product with live stock, every customer. Open this
+  first; nobody can guess that PO 1847 exists or that PO 1260 has shipped, and
+  seeing the records is what lets you check the agent against them.
+- **Developer View** — the tool calls made during the conversation, with the
+  arguments the agent chose, and every write it attempted.
+- **Reset demo data** — restores the seeded state before a recording.
 
 ---
 

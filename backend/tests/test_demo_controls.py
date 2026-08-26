@@ -230,3 +230,58 @@ def test_successful_calls_keep_the_handlers_own_tool_name(client):
         "/api/demo/activity", params={"conversation_id": "conv-ok"}
     ).json()["entries"][0]
     assert entry["tool"] == "lookup_shipment"
+
+
+# ---------------------------------------------------------------------------
+# Demo data browser
+# ---------------------------------------------------------------------------
+
+
+def test_database_snapshot_returns_the_whole_synthetic_world(client):
+    body = client.get("/api/demo/database").json()
+    assert body["counts"] == {"customers": 6, "orders": 10, "products": 31, "rfqs": 3}
+
+
+def test_snapshot_orders_carry_lines_and_edit_eligibility(client):
+    orders = {o["po_number"]: o for o in client.get("/api/demo/database").json()["orders"]}
+
+    flagship = orders["1847"]
+    assert flagship["company_name"] == "Northstar Manufacturing"
+    assert flagship["status"] == "processing"
+    assert flagship["modifiable"] is True
+    assert len(flagship["lines"]) == 3
+    assert flagship["shipments"][0]["estimated_ship_day"] == "Friday"
+
+    shipped = orders["1260"]
+    assert shipped["modifiable"] is False
+    assert all(line["modifiable"] is False for line in shipped["lines"])
+
+
+def test_snapshot_products_include_stock_and_attributes(client):
+    products = {p["sku"]: p for p in client.get("/api/demo/database").json()["products"]}
+
+    screw = products["ATL-1030"]
+    assert screw["attributes"]["length_mm"] == 30
+    assert screw["quantity_available"] == 1750
+
+    backordered = products["ATL-3206"]
+    assert backordered["quantity_available"] == 0
+    assert backordered["expected_restock_date"] is not None
+
+
+def test_snapshot_reflects_changes_made_during_a_call(client):
+    client.patch("/api/orders/1847/lines/2", json={"quantity": 200, "customer_confirmed": True})
+
+    orders = {o["po_number"]: o for o in client.get("/api/demo/database").json()["orders"]}
+    washers = next(line for line in orders["1847"]["lines"] if line["line_number"] == 2)
+    assert washers["quantity"] == 200
+
+
+def test_snapshot_is_refused_when_demo_mode_is_off(monkeypatch, client):
+    monkeypatch.setenv("ATLAS_DEMO_MODE", "false")
+    get_settings.cache_clear()
+    try:
+        assert client.get("/api/demo/database").status_code == 403
+    finally:
+        monkeypatch.delenv("ATLAS_DEMO_MODE", raising=False)
+        get_settings.cache_clear()

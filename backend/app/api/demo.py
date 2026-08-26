@@ -18,7 +18,7 @@ from app.db import get_session
 from app.logging_config import log_event
 from app.schemas import DemoFaultRequest, DemoFaultResponse, DemoResetResponse
 from app.security import require_demo_mode
-from app.services import activity, audit, faults
+from app.services import activity, audit, faults, snapshot
 from seed.seed import reset_database
 
 router = APIRouter(
@@ -128,3 +128,20 @@ def recent_activity(
         "latest_seq": entries[-1]["seq"] if entries else since_seq,
         "entries": entries,
     }
+
+
+@router.get(
+    "/database",
+    summary="[DEMO ONLY] The whole synthetic environment, for the demo data browser",
+)
+def database(session: Session = Depends(get_session)) -> dict:
+    """Everything in the synthetic world, in one read-only payload.
+
+    Exists so a visitor can see what there is to ask about -- which orders
+    exist, which products are deliberately ambiguous, what is out of stock.
+    Without it the demo is a guessing game.
+
+    A real distributor would never serve every customer's order book from one
+    endpoint. That is precisely why this sits behind the demo gate.
+    """
+    return snapshot.build_snapshot(session)
