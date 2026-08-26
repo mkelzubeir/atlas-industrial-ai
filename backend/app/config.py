@@ -39,6 +39,12 @@ class Settings(BaseSettings):
 
     log_level: str = "INFO"
 
+    # Seed the database at startup if it is empty. Off by default so running
+    # locally never surprises you by writing data; on in the container image,
+    # where the filesystem is ephemeral and each boot should give the demo a
+    # clean, known state.
+    seed_on_startup: bool = False
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

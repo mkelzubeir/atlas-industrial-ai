@@ -250,7 +250,13 @@ stated that the agent never retrieved. "Answered correctly" can pass by luck;
 
 **Prerequisites:** Python 3.11+, Node 20+, an ElevenLabs account, and a way to
 expose the backend publicly (ElevenLabs calls webhook tools from its own servers,
-so `localhost` will not do — [ngrok](https://ngrok.com) is fine).
+so `localhost` will not do — `cloudflared tunnel --url http://localhost:8000`
+needs no account).
+
+A tunnel is for a first run-through only: the hostname changes on every restart,
+which means re-provisioning the agent each time, and it dies with your laptop.
+[docs/deployment.md](docs/deployment.md) covers hosting it properly on Fly.io and
+Vercel, which is what turns this into a link you can send someone.
 
 ```bash
 git clone https://github.com/mkelzubeir/atlas-industrial-ai
@@ -325,7 +331,7 @@ agent/            the agent as version-controlled configuration
 frontend/         Next.js console and Developer View
 evals/            conversational scenarios and their runner
 scripts/          idempotent provisioning
-docs/             architecture, evaluations, failure modes
+docs/             architecture, evaluations, failure modes, deployment
 ```
 
 ---

@@ -1,0 +1,39 @@
+# Fly.io deployment for the Atlas backend.
+#
+# Run `fly launch --no-deploy` from this directory once to claim an app name,
+# then `fly deploy`. See docs/deployment.md for the full runbook.
+
+app = "atlas-industrial-ai"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  ATLAS_DEMO_MODE = "true"
+  ATLAS_SEED_ON_STARTUP = "true"
+  ATLAS_LOG_LEVEL = "INFO"
+  PORT = "8000"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+
+  # Scale-to-zero is the wrong trade here. A cold start takes longer than the
+  # agent's 15-20s tool timeout, so the first question of every demo would be
+  # answered with "I can't reach that system right now" -- the one failure mode
+  # this project exists to avoid. Keep one machine warm.
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    path = "/health"
+    timeout = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

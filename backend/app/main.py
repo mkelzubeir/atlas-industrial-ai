@@ -38,8 +38,27 @@ async def lifespan(_app: FastAPI):
 
     # Create the schema if the database has never been initialised. Seeding is
     # left to `python -m seed.seed` so that starting the server never silently
-    # overwrites data someone is mid-demo with.
+    # overwrites data someone is mid-demo with -- unless ATLAS_SEED_ON_STARTUP
+    # is set, which hosted deployments use because their disk is ephemeral.
     Base.metadata.create_all(bind=engine)
+
+    if settings.seed_on_startup:
+        from sqlalchemy import func, select
+        from sqlalchemy.orm import Session
+
+        from app.models import Product
+        from seed.seed import reset_database
+
+        with Session(engine) as session:
+            product_count = session.scalar(select(func.count()).select_from(Product)) or 0
+        # Only seed an empty database. A restart with a persistent volume must
+        # not wipe changes made during a demo.
+        if product_count == 0:
+            summary = reset_database()
+            log_event("startup.seeded", **summary)
+        else:
+            log_event("startup.seed_skipped", products=product_count)
+
     tables = inspect(engine).get_table_names()
     log_event(
         "startup",
