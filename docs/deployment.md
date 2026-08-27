@@ -31,8 +31,24 @@ Hosting the backend fixes all three at once.
 ```bash
 cd backend
 fly auth login
-fly launch --no-deploy          # claims the app name in fly.toml; keep the region
+fly launch --no-deploy          # claims an app name
 ```
+
+> **`fly launch` overwrites `Dockerfile` and `fly.toml`.** It detects a Python
+> project and writes its own versions over the ones in this repo, silently. The
+> generated Dockerfile does not work here, and the generated `fly.toml` drops the
+> always-warm settings. Restore them immediately afterwards, keeping the app name
+> Fly assigned:
+>
+> ```bash
+> APP=$(grep '^app = ' fly.toml | cut -d'"' -f2)   # the name Fly just created
+> git checkout Dockerfile fly.toml
+> sed -i '' "s/^app = .*/app = \"$APP\"/" fly.toml
+> ```
+>
+> Fly app names are globally unique, so yours will be something like
+> `backend-damp-coastline-2707` rather than `atlas-industrial-ai`. Whatever it is,
+> that hostname is what goes in the provisioner and in Vercel.
 
 Set the shared secret as a Fly secret rather than an env var — secrets are
 encrypted at rest and never appear in `fly config show`:
@@ -171,12 +187,18 @@ starting state.
 
 ## Status of this config
 
-The Dockerfile and `fly.toml` are written but **have not been built or deployed
-from this repository** — there was no Docker daemon available where they were
-authored. What *has* been verified is the behaviour they depend on: booting
-against an empty database seeds it (`startup.seeded`, 31 products), and booting
-again against a populated one skips seeding rather than wiping it
-(`startup.seed_skipped`).
+The image has **not been built from this repository** — no Docker daemon was
+available where it was authored. The first real deploy attempt found a genuine
+bug in it, since fixed: `pip install .` ran before `app/` and `seed/` were
+copied, and `pyproject.toml` declares them as packages, so setuptools failed
+with `package directory 'app' does not exist`. Dependencies-first layer caching
+does not work when the project installs itself; the source is now copied first.
 
-If `fly deploy` fails, it will be in the image build, and the error will name the
-step.
+Verified since:
+
+- the install step, reproduced outside Docker in a clean virtualenv against a
+  directory containing only what the image copies — `pip install .` succeeds and
+  `app` and `seed` import from the installed package
+- booting against an empty database seeds it (`startup.seeded`, 31 products)
+- booting again against a populated one skips seeding rather than wiping it
+  (`startup.seed_skipped`)

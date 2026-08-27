@@ -11,12 +11,18 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /srv
 
-# Dependencies first: this layer is cached until pyproject.toml changes.
+# Source must be copied BEFORE `pip install .`, not after.
+#
+# The tempting layout is pyproject.toml first so the dependency layer caches
+# independently of code changes. It does not work here: pyproject declares
+# `packages = ["app", "seed"]`, so setuptools looks for those directories while
+# building the wheel and fails with "package directory 'app' does not exist" if
+# they have not been copied yet. Correctness beats a cache layer on a build
+# this small.
 COPY pyproject.toml ./
-RUN pip install --upgrade pip && pip install .
-
 COPY app ./app
 COPY seed ./seed
+RUN pip install --upgrade pip && pip install .
 
 # The SQLite file lives here. On a host without a persistent volume the
 # container is ephemeral, which is fine -- ATLAS_SEED_ON_STARTUP rebuilds the
