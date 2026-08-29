@@ -57,7 +57,6 @@ than the demo layer, so I picked a workflow class I already understood —
 industrial-distribution customer service — and built the whole thing: the
 business systems, the agent, the guardrails and the tests.
 
-The interesting problem turned out not to be the voice. It was the boundary.
 The model handles the conversation and decides what information it needs. The
 backend stays authoritative about what is in stock, what an order says, and
 whether a change is permitted. Getting that line in the right place is most of
